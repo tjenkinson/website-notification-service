@@ -55,7 +55,7 @@ function connectRedis() {
 
 function connectSocketIO() {
 	return new Promise(function(resolve) {
-		var io = new SocketIO(http);
+		var io = new SocketIO(http, {serveClient: false});
 		http.listen(config.socketIO.port, function() {
 			resolve(io);
 		});
