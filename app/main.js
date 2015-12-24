@@ -1,3 +1,4 @@
+var fs = require("fs");
 var redis = require("redis");
 var app = require("express")();
 var SocketIO = require("socket.io");
@@ -8,9 +9,12 @@ console.log("Loading...");
 var http = null;
 if (config.socketIO.https) {
 	var credentials = {
-		key: fs.readFileSync(config.socketIO.privatekeyPath),
-		cert: fs.readFileSync(config.socketIO.certificatePath)
+		key: fs.readFileSync(config.socketIO.privateKeyPath).toString(),
+		cert: fs.readFileSync(config.socketIO.certificatePath).toString()
 	};
+	if (config.socketIO.intermediateCertificatePath) {
+		credentials.ca = fs.readFileSync(config.socketIO.intermediateCertificatePath).toString();
+	}
 	http = require('https').Server(credentials, app);
 }
 else {
