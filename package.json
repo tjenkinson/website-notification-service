@@ -1,0 +1,23 @@
+{
+  "name": "website-notification-service",
+  "version": "0.0.1",
+  "description": "This service is responsible for providing realtime notifications for the website.",
+  "main": "./app/main.js",
+  "keywords": [],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LA1TV/website-notification-service.git"
+  },
+  "engine": {
+    "node": ">=0.6.0"
+  },
+  "author": {
+    "name": "Tom Jenkinson",
+    "email": "tjcode@outlook.com"
+  },
+  "dependencies": {
+    "express": "^4.13.3",
+    "redis": "^2.4.2",
+    "socket.io": "^1.3.7"
+  }
+}

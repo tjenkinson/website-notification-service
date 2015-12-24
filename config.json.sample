@@ -1,0 +1,14 @@
+{
+	"redis": {
+		"host": "localhost",
+		"port": 63790,
+		"password": ""
+	},
+	"socketIO": {
+		"port": 8080,
+		"https": false,
+		"privateKeyPath": null,
+		"certificatePath": null,
+		"origins": "*.*"
+	}
+}
