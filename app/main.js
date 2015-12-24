@@ -17,15 +17,16 @@ else {
 	http = require("http").Server(app);
 }
 
-
 var redisClient = null;
-app.listen(config.socketIO.port);
-var io = new SocketIO({serveClient: false});
-io.origins(config.socketIO.origins);
-io.attach(http);
+var io = null;
 
-connectRedis().then(function(a) {
-	redisClient = a;
+Promise.all([connectRedis(), connectSocketIO()]).then(function(results) {
+	redisClient = results[0];
+	io = results[1];
+
+	io.on('connection', function(socket) {
+		console.log('Got a connection.');
+	});
 
 	redisClient.on("message", function(channel, message) {
 		if (channel !== "siteNotificationsChannel") {
@@ -44,6 +45,15 @@ function connectRedis() {
 	return new Promise(function(resolve) {
 		client.auth(config.redis.password, function() {
 			resolve(client);
+		});
+	});
+}
+
+function connectSocketIO() {
+	return new Promise(function(resolve) {
+		var io = new SocketIO(http);
+		http.listen(config.socketIO.port, function() {
+			resolve(io);
 		});
 	});
 }
