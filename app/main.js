@@ -46,7 +46,9 @@ Promise.all([connectRedis(), connectMysql(), connectSocketIO()]).then(function(r
 
 	redisClient.subscribe("siteNotificationsChannel");
 	startSynchronisedClock();
-	console.log("Loaded.");
+	enableSocketIO().then(function() {
+		console.log("Loaded.");
+	});
 });
 
 function connectRedis() {
@@ -81,9 +83,14 @@ function connectSocketIO() {
  			authenticate: authenticateUser,
 			timeout: 3000
 		});
+		resolve(io);
+	});
+}
 
+function enableSocketIO() {
+	return new Promise(function(resolve) {
 		http.listen(config.socketIO.port, function() {
-			resolve(io);
+			resolve();
 		});
 	});
 }
