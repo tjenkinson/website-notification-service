@@ -1,4 +1,11 @@
 {
+	"mysql": {
+		"host": "localhost",
+		"port": 33060,
+		"user": "homestead",
+		"password": "secret",
+		"database": "homestead"
+	},
 	"redis": {
 		"host": "localhost",
 		"port": 63790,

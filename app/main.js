@@ -1,7 +1,9 @@
 var fs = require("fs");
 var redis = require("redis");
+var mysql = require("mysql");
 var app = require("express")();
 var SocketIO = require("socket.io");
+var SocketIOAuth = require('socketio-auth');
 var config = require("../config.json");
 
 console.log("Loading...");
@@ -23,10 +25,12 @@ else {
 
 var redisClient = null;
 var io = null;
+var mysqlCon = null;
 
-Promise.all([connectRedis(), connectSocketIO()]).then(function(results) {
+Promise.all([connectRedis(), connectMysql(), connectSocketIO()]).then(function(results) {
 	redisClient = results[0];
-	io = results[1];
+	mysqlCon = results[1];
+	io = results[2];
 
 	io.on('connection', function(socket) {
 		console.log('Got a connection.');
@@ -41,6 +45,7 @@ Promise.all([connectRedis(), connectSocketIO()]).then(function(results) {
 	});
 
 	redisClient.subscribe("siteNotificationsChannel");
+	startSynchronisedClock();
 	console.log("Loaded.");
 });
 
@@ -53,13 +58,73 @@ function connectRedis() {
 	});
 }
 
+function connectMysql() {
+	return new Promise(function(resolve) {
+		var connection = mysql.createConnection({
+			host: config.mysql.host,
+			port: config.mysql.port,
+			user: config.mysql.user,
+			password: config.mysql.password,
+			database: config.mysql.database
+		});
+		connection.connect(function(err) {
+			if (err) throw(err);
+			resolve(connection);
+		});
+	});
+}
+
 function connectSocketIO() {
 	return new Promise(function(resolve) {
 		var io = new SocketIO(http, {serveClient: false});
+		SocketIOAuth(io, {
+ 			authenticate: authenticateUser,
+			timeout: 3000
+		});
+
 		http.listen(config.socketIO.port, function() {
 			resolve(io);
 		});
 	});
+}
+
+function authenticateUser(socket, data, callback) {
+	var denied = function() {
+		console.log("User denied access.");
+		callback(new Error("Access denied."));
+	};
+
+	isValidSessionId(data.sessionId).then(function(valid) {
+		if (valid) {
+			console.log("User granted access.");
+			callback(null, true);
+		}
+		else {
+			denied();
+		}
+	}).catch(function(e) {
+		console.log(e);
+		denied();
+	});
+}
+
+function isValidSessionId(id) {
+	return new Promise(function(resolve, reject) {
+		if (typeof(id) !== "string") {
+			reject("ID not a string.");
+			return;
+		}
+		mysqlCon.query('SELECT count(*) as count FROM sessions WHERE id=?', [id], function(err, results) {
+			if (err) throw(err);
+			resolve(results[0].count > 0);
+		});
+	});
+}
+
+function startSynchronisedClock() {
+	setInterval(function() {
+		emitEvent("synchronisedClock.time", Date.now());
+	}, 5000);
 }
 
 function emitEvent(eventId, payload) {
