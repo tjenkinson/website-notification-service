@@ -45,6 +45,7 @@ Promise.all([connectRedis(), connectMysql(), connectSocketIO()]).then(function(r
 	});
 
 	redisClient.subscribe("siteNotificationsChannel");
+	startSynchronisedClock();
 	console.log("Loaded.");
 });
 
@@ -118,6 +119,12 @@ function isValidSessionId(id) {
 			resolve(results[0].count > 0);
 		});
 	});
+}
+
+function startSynchronisedClock() {
+	setInterval(function() {
+		emitEvent("synchronisedClock.time", Date.now());
+	}, 5000);
 }
 
 function emitEvent(eventId, payload) {
