@@ -17,5 +17,8 @@
 		"privateKeyPath": null,
 		"certificatePath": null,
 		"intermediateCertificatePath": null
-	}
+	},
+	// note if you disable push notifications you also need to disable it for the site, otherwise browsers will subscribe but never receive any notifications!
+	"pushNotificationsEnabled": true,
+	"gcmApiKey": null
 }
