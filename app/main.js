@@ -3,6 +3,7 @@ var redis = require("redis");
 var mysql = require("mysql");
 var app = require("express")();
 var SocketIO = require("socket.io");
+var request = require('request');
 var SocketIOAuth = require('socketio-auth');
 var config = require("../config.json");
 
@@ -152,6 +153,9 @@ function generateNotificationEvent(eventId, payload) {
 			duration: 8000
 		};
 		emitEvent("notification", payload);
+		if (config.pushNotificationsEnabled) {
+			sendPushNotifications(payload);
+		}
 	}
 }
 
@@ -166,5 +170,84 @@ function emitEvent(eventId, payload) {
 		io.emit(eventId, payload);
 		console.log('Emitted event with id "'+eventId+'" on socket.');
 		resolve();
+	});
+}
+
+function getPushNotificationEndpoints() {
+	return new Promise(function(resolve, reject) {
+		mysqlCon.query('SELECT * FROM push_notification_registration_endpoints ORDER BY id', function(err, results) {
+			if (err) throw(err);
+			resolve(results.map(function(a) {
+				return {
+					url: a.url
+				}
+			}));
+		});
+	});
+}
+
+function sendPushNotifications(payload) {
+	return getPushNotificationEndpoints().then(function(endpoints) {
+		return Promise.all(endpoints.map(function(endpoint) {
+			return sendPushNotification(endpoint, payload);
+		}));
+	});
+}
+
+function sendPushNotification(endpoint, payload) {
+	return new Promise(function(resolve, reject) {
+		var endpointUrl = endpoint.url;
+		
+		var prefix = 'https://android.googleapis.com/gcm/send';
+		// google is a special case (at the moment)
+		if (endpointUrl.slice(0, prefix.length) === prefix) {
+			return sendGooglePushNotification(endpoint, payload);
+		}
+
+		console.log('Making request to push endpoint "'+endpointUrl+'".');
+		return new Promise(function(resolve) {
+			request({
+				uri: endpointUrl,
+				method: "POST",
+				body: {},
+				json: true,
+				timeout: 10000
+			}, function(error, response, body) {
+				if (error) {
+					console.log('Error making request to push endpoint "'+endpointUrl+'".');
+				}
+				else {
+					console.log('Got response code '+response.statusCode+' when making request to push endpoint "'+endpointUrl+'".');
+				}
+				resolve();
+			});
+		});
+	});
+}
+
+function sendGooglePushNotification(endpoint, payload) {
+	var registrationId = endpoint.url.split('/').pop();
+	console.log('Making request to google push endpoint.');
+    return new Promise(function(resolve) {
+		request({
+			uri: "https://android.googleapis.com/gcm/send",
+			method: "POST",
+			timeout: 10000,
+			json: true,
+			headers: {
+				'Authorization': 'key='+config.gcmApiKey,
+			},
+			body: {
+				registration_ids: [registrationId]
+			}
+		}, function(error, response, body) {
+			if (error) {
+				console.log('Error making request to google push endpoint.');
+			}
+			else {
+				console.log('Got response code '+response.statusCode+' when making request to google push endpoint.');
+			}
+			resolve();
+		});
 	});
 }
