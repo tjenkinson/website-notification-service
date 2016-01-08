@@ -42,6 +42,7 @@ Promise.all([connectRedis(), connectMysql(), connectSocketIO()]).then(function(r
 		}
 		var data = JSON.parse(message);
 		emitEvent(data.eventId, data.payload);
+		generateNotificationEvent(data.eventId, data.payload);
 	});
 
 	redisClient.subscribe("siteNotificationsChannel");
@@ -132,6 +133,26 @@ function startSynchronisedClock() {
 	setInterval(function() {
 		emitEvent("synchronisedClock.time", Date.now());
 	}, 5000);
+}
+
+function generateNotificationEvent(eventId, payload) {
+	if (eventId === "mediaItem.live") {
+		generateEvent("We are live!", 'We are now live with "'+payload.name+'".', payload.url, payload.iconUrl);
+	}
+	else if (eventId === "mediaItem.vodAvailable") {
+		generateEvent("New content available!", '"'+payload.name+'" is now available to watch on demand.', payload.url, payload.iconUrl);
+	}
+
+	function generateEvent(title, body, url, iconUrl) {
+		var payload = {
+			title: title,
+			body: body,
+			url: url,
+			iconUrl: iconUrl,
+			duration: 8000
+		};
+		emitEvent("notification", payload);
+	}
 }
 
 function emitEvent(eventId, payload) {
