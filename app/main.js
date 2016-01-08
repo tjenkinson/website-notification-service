@@ -25,13 +25,15 @@ else {
 }
 
 var redisClient = null;
+var redisClientNotifications = null;
 var io = null;
 var mysqlCon = null;
 
-Promise.all([connectRedis(), connectMysql(), connectSocketIO()]).then(function(results) {
+Promise.all([connectRedis(), connectRedis(), connectMysql(), connectSocketIO()]).then(function(results) {
 	redisClient = results[0];
-	mysqlCon = results[1];
-	io = results[2];
+	redisClientNotifications = results[1];
+	mysqlCon = results[2];
+	io = results[3];
 
 	io.on('connection', function(socket) {
 		console.log('Got a connection.');
@@ -179,7 +181,8 @@ function getPushNotificationEndpoints() {
 			if (err) throw(err);
 			resolve(results.map(function(a) {
 				return {
-					url: a.url
+					url: a.url,
+					sessionId: a.session_id
 				}
 			}));
 		});
@@ -196,30 +199,75 @@ function sendPushNotifications(payload) {
 
 function sendPushNotification(endpoint, payload) {
 	return new Promise(function(resolve, reject) {
-		var endpointUrl = endpoint.url;
-		
-		var prefix = 'https://android.googleapis.com/gcm/send';
-		// google is a special case (at the moment)
-		if (endpointUrl.slice(0, prefix.length) === prefix) {
-			return sendGooglePushNotification(endpoint, payload);
-		}
+		pushNotificationPayloadToRedis(endpoint.sessionId, payload).then(function() {
+			var endpointUrl = endpoint.url;
+			
+			var prefix = 'https://android.googleapis.com/gcm/send';
+			// google is a special case (at the moment)
+			if (endpointUrl.slice(0, prefix.length) === prefix) {
+				return sendGooglePushNotification(endpoint, payload);
+			}
 
-		console.log('Making request to push endpoint "'+endpointUrl+'".');
-		return new Promise(function(resolve) {
-			request({
-				uri: endpointUrl,
-				method: "POST",
-				body: {},
-				json: true,
-				timeout: 10000
-			}, function(error, response, body) {
-				if (error) {
-					console.log('Error making request to push endpoint "'+endpointUrl+'".');
+			console.log('Making request to push endpoint "'+endpointUrl+'".');
+			return new Promise(function(resolve) {
+				request({
+					uri: endpointUrl,
+					method: "POST",
+					body: {},
+					json: true,
+					timeout: 10000
+				}, function(error, response, body) {
+					if (error) {
+						console.log('Error making request to push endpoint "'+endpointUrl+'".');
+					}
+					else {
+						console.log('Got response code '+response.statusCode+' when making request to push endpoint "'+endpointUrl+'".');
+					}
+					resolve();
+				});
+			});
+		});
+	});
+}
+
+function pushNotificationPayloadToRedis(sessionId, payload) {
+	return new Promise(function(resolve, reject) {
+		var now = Date.now();
+		var data = {
+			time: now,
+			payload: payload
+		};
+
+		var key = "notificationPayloads."+sessionId;
+
+		// notifications will be stored as a js array where each item is {time, payload}, and the key is the session id
+		redisClientNotifications.get(key, function(err, reply) {
+			if (err) {
+				console.log("Error getting pending notifications from redis.");
+				reject();
+			}
+			else {
+				var queuedNotifications = [];
+				if (reply) {
+					// there are alredy notifications stored
+					queuedNotifications = JSON.parse(reply);
+					// don't put notifications back that have expired
+					queuedNotifications = queuedNotifications.filter(function(a) {
+						return a.time >= now - 30000;
+					});
+				}
+				queuedNotifications.push(data);
+			}
+
+			redisClientNotifications.set(key, JSON.stringify(queuedNotifications), "EX", 30, function(err, res) {
+				if (err || res !== "OK") {
+					console.log("Error pushing notification payload to redis.");
+					reject();
 				}
 				else {
-					console.log('Got response code '+response.statusCode+' when making request to push endpoint "'+endpointUrl+'".');
+					console.log("Pushed notification payload to redis.");
+					resolve();
 				}
-				resolve();
 			});
 		});
 	});
