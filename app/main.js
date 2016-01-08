@@ -253,13 +253,13 @@ function pushNotificationPayloadToRedis(sessionId, payload) {
 					queuedNotifications = JSON.parse(reply);
 					// don't put notifications back that have expired
 					queuedNotifications = queuedNotifications.filter(function(a) {
-						return a.time >= now - 30000;
+						return a.time >= now - 600000;
 					});
 				}
 				queuedNotifications.push(data);
 			}
 
-			redisClientNotifications.set(key, JSON.stringify(queuedNotifications), "EX", 30, function(err, res) {
+			redisClientNotifications.set(key, JSON.stringify(queuedNotifications), "EX", 600, function(err, res) {
 				if (err || res !== "OK") {
 					console.log("Error pushing notification payload to redis.");
 					reject();
