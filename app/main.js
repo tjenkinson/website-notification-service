@@ -86,6 +86,9 @@ function connectMysql() {
 function connectSocketIO() {
 	return new Promise(function(resolve) {
 		var io = new SocketIO(http, {serveClient: false});
+		if (config.socketIO.origins) {
+			io.origins(config.socketIO.origins);
+		}
 		SocketIOAuth(io, {
  			authenticate: authenticateUser,
 			timeout: 3000
