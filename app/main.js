@@ -3,7 +3,6 @@ var redis = require("redis");
 var mysql = require("mysql");
 var app = require("express")();
 var SocketIO = require("socket.io");
-var request = require('request');
 var SocketIOAuth = require('socketio-auth');
 var webPush = require('web-push');
 var config = require("../config.json");
@@ -87,6 +86,9 @@ function connectMysql() {
 function connectSocketIO() {
 	return new Promise(function(resolve) {
 		var io = new SocketIO(http, {serveClient: false});
+		if (config.socketIO.origins) {
+			io.origins(config.socketIO.origins);
+		}
 		SocketIOAuth(io, {
  			authenticate: authenticateUser,
 			timeout: 3000

@@ -13,6 +13,7 @@
 	},
 	"socketIO": {
 		"port": 8080,
+		"origins": "*://www.la1tv.co.uk.local:*",
 		"https": false,
 		"privateKeyPath": null,
 		"certificatePath": null,
