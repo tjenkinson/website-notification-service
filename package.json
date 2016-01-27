@@ -23,6 +23,7 @@
     "socketio-auth": "0.0.5"
   },
   "devDependencies": {
-    "request": "^2.67.0"
+    "request": "^2.67.0",
+    "web-push": "^1.0.0"
   }
 }
