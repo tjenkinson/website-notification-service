@@ -3,7 +3,6 @@ var redis = require("redis");
 var mysql = require("mysql");
 var app = require("express")();
 var SocketIO = require("socket.io");
-var request = require('request');
 var SocketIOAuth = require('socketio-auth');
 var webPush = require('web-push');
 var config = require("../config.json");
