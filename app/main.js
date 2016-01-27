@@ -239,13 +239,14 @@ function pushNotificationPayloadToRedis(sessionId, payload) {
 					queuedNotifications = JSON.parse(reply);
 					// don't put notifications back that have expired
 					queuedNotifications = queuedNotifications.filter(function(a) {
-						return a.time >= now - 600000;
+						return a.time >= now - 172800000;
 					});
 				}
 				queuedNotifications.push(data);
 			}
-
-			redisClientNotifications.set(key, JSON.stringify(queuedNotifications), "EX", 600, function(err, res) {
+			// expire in 2 days. Chrome appears to still send push events when devices which were offline come back online
+			// presuming most people will use their device within 2 days
+			redisClientNotifications.set(key, JSON.stringify(queuedNotifications), "EX", 172800, function(err, res) {
 				if (err || res !== "OK") {
 					console.log("Error pushing notification payload to redis.");
 					reject();
