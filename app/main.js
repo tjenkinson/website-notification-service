@@ -5,6 +5,7 @@ var app = require("express")();
 var SocketIO = require("socket.io");
 var request = require('request');
 var SocketIOAuth = require('socketio-auth');
+var webPush = require('web-push');
 var config = require("../config.json");
 
 console.log("Loading...");
@@ -28,6 +29,9 @@ var redisClient = null;
 var redisClientNotifications = null;
 var io = null;
 var mysqlCon = null;
+
+// set google api key for push notifications to chrome
+webPush.setGCMAPIKey(config.gcmApiKey);
 
 Promise.all([connectRedis(), connectRedis(), connectMysql(), connectSocketIO()]).then(function(results) {
 	redisClient = results[0];
@@ -140,13 +144,14 @@ function startSynchronisedClock() {
 
 function generateNotificationEvent(eventId, payload) {
 	if (eventId === "mediaItem.live") {
-		generateEvent("We are live!", 'We are now live with "'+payload.name+'".', payload.url, payload.iconUrl);
+		generateEvent("We are live!", 'We are now live with "'+payload.name+'".', payload.url, payload.iconUrl, 300);
 	}
 	else if (eventId === "mediaItem.vodAvailable") {
-		generateEvent("New content available!", '"'+payload.name+'" is now available to watch on demand.', payload.url, payload.iconUrl);
+		generateEvent("New content available!", '"'+payload.name+'" is now available to watch on demand.', payload.url, payload.iconUrl, 86400);
 	}
 
-	function generateEvent(title, body, url, iconUrl) {
+	function generateEvent(title, body, url, iconUrl, ttl) {
+		ttl = ttl || 300;
 		var payload = {
 			title: title,
 			body: body,
@@ -156,7 +161,7 @@ function generateNotificationEvent(eventId, payload) {
 		};
 		emitEvent("notification", payload);
 		if (config.pushNotificationsEnabled) {
-			sendPushNotifications(payload);
+			sendPushNotifications(payload, ttl);
 		}
 	}
 }
@@ -183,48 +188,29 @@ function getPushNotificationEndpoints() {
 				return {
 					url: a.url,
 					sessionId: a.session_id
-				}
+				};
 			}));
 		});
 	});
 }
 
-function sendPushNotifications(payload) {
+function sendPushNotifications(payload, ttl) {
 	return getPushNotificationEndpoints().then(function(endpoints) {
 		return Promise.all(endpoints.map(function(endpoint) {
-			return sendPushNotification(endpoint, payload);
+			return sendPushNotification(endpoint, payload, ttl);
 		}));
 	});
 }
 
-function sendPushNotification(endpoint, payload) {
+function sendPushNotification(endpoint, payload, ttl) {
 	return new Promise(function(resolve, reject) {
 		pushNotificationPayloadToRedis(endpoint.sessionId, payload).then(function() {
 			var endpointUrl = endpoint.url;
-			
-			var prefix = 'https://android.googleapis.com/gcm/send';
-			// google is a special case (at the moment)
-			if (endpointUrl.slice(0, prefix.length) === prefix) {
-				return sendGooglePushNotification(endpoint, payload);
-			}
-
 			console.log('Making request to push endpoint "'+endpointUrl+'".');
-			return new Promise(function(resolve) {
-				request({
-					uri: endpointUrl,
-					method: "POST",
-					body: {},
-					json: true,
-					timeout: 10000
-				}, function(error, response, body) {
-					if (error) {
-						console.log('Error making request to push endpoint "'+endpointUrl+'".');
-					}
-					else {
-						console.log('Got response code '+response.statusCode+' when making request to push endpoint "'+endpointUrl+'".');
-					}
-					resolve();
-				});
+			return webPush.sendNotification(endpointUrl, ttl).then(function() {
+				console.log('Made request to push endpoint "'+endpointUrl+'".');
+			}).catch(function() {
+				console.log('Request to push endpoint "'+endpointUrl+'" failed for some reason.');
 			});
 		});
 	});
@@ -269,33 +255,6 @@ function pushNotificationPayloadToRedis(sessionId, payload) {
 					resolve();
 				}
 			});
-		});
-	});
-}
-
-function sendGooglePushNotification(endpoint, payload) {
-	var registrationId = endpoint.url.split('/').pop();
-	console.log('Making request to google push endpoint.');
-    return new Promise(function(resolve) {
-		request({
-			uri: "https://android.googleapis.com/gcm/send",
-			method: "POST",
-			timeout: 10000,
-			json: true,
-			headers: {
-				'Authorization': 'key='+config.gcmApiKey,
-			},
-			body: {
-				registration_ids: [registrationId]
-			}
-		}, function(error, response, body) {
-			if (error) {
-				console.log('Error making request to google push endpoint.');
-			}
-			else {
-				console.log('Got response code '+response.statusCode+' when making request to google push endpoint.');
-			}
-			resolve();
 		});
 	});
 }
