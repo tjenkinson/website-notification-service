@@ -146,20 +146,22 @@ function startSynchronisedClock() {
 
 function generateNotificationEvent(eventId, payload) {
 	if (eventId === "mediaItem.live") {
-		generateEvent("We are live!", 'We are now live with "'+payload.name+'".', payload.url, payload.iconUrl, 300);
+		generateEvent("We are live!", 'We are now live with "'+payload.name+'".', payload.url, payload.iconUrl, 300, "mediaItem.live."+payload.id);
 	}
 	else if (eventId === "mediaItem.vodAvailable") {
-		generateEvent("New content available!", '"'+payload.name+'" is now available to watch on demand.', payload.url, payload.iconUrl, 86400);
+		generateEvent("New content available!", '"'+payload.name+'" is now available to watch on demand.', payload.url, payload.iconUrl, 86400, "mediaItem.vodAvailable."+payload.id);
 	}
 
-	function generateEvent(title, body, url, iconUrl, ttl) {
+	function generateEvent(title, body, url, iconUrl, ttl, tag) {
 		ttl = ttl || 300;
+		tag = tag || null;
 		var payload = {
 			title: title,
 			body: body,
 			url: url,
 			iconUrl: iconUrl,
-			duration: 8000
+			duration: 8000,
+			tag: tag
 		};
 		emitEvent("notification", payload);
 		if (config.pushNotificationsEnabled) {
