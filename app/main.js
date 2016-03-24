@@ -211,7 +211,9 @@ function sendPushNotification(endpoint, payload, ttl) {
 		pushNotificationPayloadToRedis(endpoint.sessionId, payload).then(function() {
 			var endpointUrl = endpoint.url;
 			console.log('Making request to push endpoint "'+endpointUrl+'".');
-			return webPush.sendNotification(endpointUrl, ttl).then(function() {
+			return webPush.sendNotification(endpointUrl, {
+				TTL: ttl
+			}).then(function() {
 				console.log('Made request to push endpoint "'+endpointUrl+'".');
 			}).catch(function() {
 				console.log('Request to push endpoint "'+endpointUrl+'" failed for some reason.');
